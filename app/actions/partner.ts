@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { revokeAccessToken } from "@/lib/mercadopago"
 
 interface CreatePartnerData {
   userId: string
@@ -174,13 +175,29 @@ export async function disconnectMercadoPagoAction(partnerId: string) {
 
     const { data: partner } = await supabase
       .from('partners')
-      .select('id, user_id')
+      .select('id, user_id, mp_access_token')
       .eq('id', partnerId)
       .eq('user_id', user.id)
       .single()
 
     if (!partner) {
       return { error: 'Parceiro não encontrado ou sem permissão' }
+    }
+
+    if (partner.mp_access_token) {
+      const clientId = process.env.MP_CLIENT_ID
+      const clientSecret = process.env.MP_CLIENT_SECRET
+      
+      if (clientId && clientSecret) {
+        console.log('[v0] Revoking MP access token...')
+        const revoked = await revokeAccessToken(clientId, clientSecret, partner.mp_access_token)
+        
+        if (revoked) {
+          console.log('[v0] MP token revoked successfully')
+        } else {
+          console.warn('[v0] Failed to revoke MP token, but continuing with disconnect')
+        }
+      }
     }
 
     // Remove Mercado Pago credentials

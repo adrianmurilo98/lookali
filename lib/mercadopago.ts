@@ -187,3 +187,28 @@ export function validateWebhookSignature(
     return false
   }
 }
+
+export async function revokeAccessToken(
+  clientId: string,
+  clientSecret: string,
+  accessToken: string
+): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.mercadopago.com/oauth/token', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      },
+      body: JSON.stringify({
+        token: accessToken,
+      }),
+    })
+
+    // MP returns 200 or 204 on success
+    return response.ok
+  } catch (error) {
+    console.error('[v0] Error revoking MP token:', error)
+    return false
+  }
+}

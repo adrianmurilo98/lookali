@@ -41,21 +41,18 @@ const handleConnect = () => {
   const clientId = process.env.NEXT_PUBLIC_MP_CLIENT_ID
   const redirectUri = `${window.location.origin}/api/mercadopago/oauth-callback`
   
-  const state = `${Date.now()}_${Math.random().toString(36).substring(7)}`
+  // Use timestamp-based state for security
+  const state = `${partnerId}_${Date.now()}`
   
-  const authUrl = new URL('https://auth.mercadopago.com.br/authorization')
-  authUrl.searchParams.set('client_id', clientId!)
-  authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('platform_id', 'mp')
-  authUrl.searchParams.set('redirect_uri', redirectUri)
-  authUrl.searchParams.set('state', state)
-  authUrl.searchParams.set('prompt', 'login')  // ← FORÇA TELA DE LOGIN
-  authUrl.searchParams.set('max_age', '0')     // ← FORÇA SESSÃO EXPIRADA
+  // Build simple OAuth URL - token revocation handles forcing new login
+  const authUrl = `https://auth.mercadopago.com.br/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+  
+  console.log('[v0] Redirecting to MP OAuth')
   
   // Store state for validation
   sessionStorage.setItem('mp_oauth_state', state)
   
-  window.location.href = authUrl.toString() + `&_t=${Date.now()}`
+  window.location.href = authUrl
 }
 
   const handleDisconnect = async () => {
