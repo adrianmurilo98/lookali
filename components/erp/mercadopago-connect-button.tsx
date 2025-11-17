@@ -35,29 +35,28 @@ export function MercadoPagoConnectButton({
   const router = useRouter()
   const { toast } = useToast()
 
-  const handleConnect = () => {
-    setIsConnecting(true)
-    
-    const clientId = process.env.NEXT_PUBLIC_MP_CLIENT_ID
-    const redirectUri = `${window.location.origin}/api/mercadopago/oauth-callback`
-    
-    const state = Math.random().toString(36).substring(7)
-    
-    // Redirect to Mercado Pago OAuth with params to force account selection
-    const authUrl = new URL('https://auth.mercadopago.com.br/authorization')
-    authUrl.searchParams.set('client_id', clientId!)
-    authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('platform_id', 'mp')
-    authUrl.searchParams.set('redirect_uri', redirectUri)
-    authUrl.searchParams.set('state', state)
-    // Force user to select/login account again
-    authUrl.searchParams.set('prompt', 'select_account')
-    
-    // Store state for validation
-    sessionStorage.setItem('mp_oauth_state', state)
-    
-    window.location.href = authUrl.toString()
-  }
+const handleConnect = () => {
+  setIsConnecting(true)
+  
+  const clientId = process.env.NEXT_PUBLIC_MP_CLIENT_ID
+  const redirectUri = `${window.location.origin}/api/mercadopago/oauth-callback`
+  
+  const state = Math.random().toString(36).substring(7)
+  
+  // Redirect to Mercado Pago OAuth with force_login
+  const authUrl = new URL('https://auth.mercadopago.com.br/authorization')
+  authUrl.searchParams.set('client_id', clientId!)
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('platform_id', 'mp')
+  authUrl.searchParams.set('redirect_uri', redirectUri)
+  authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('force_login', 'true')  // ← FORÇA LOGIN SEMPRE
+  
+  // Store state for validation
+  sessionStorage.setItem('mp_oauth_state', state)
+  
+  window.location.href = authUrl.toString()
+}
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true)
