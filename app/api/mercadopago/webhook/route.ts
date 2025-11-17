@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getPayment, mapMPStatusToOrderStatus } from '@/lib/mercadopago'
+import { getPayment, mapMPStatusToOrderStatus, validateWebhookSignature } from '@/lib/mercadopago'
 
 export async function POST(request: NextRequest) {
   try {
-    // Create Supabase client inside the function
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // 1. Extract and validate signature headers
+    const xSignature = request.headers.get('x-signature')
+    const xRequestId = request.headers.get('x-request-id')
+    
+    if (!xSignature || !xRequestId) {
+      console.error('[v0] Missing required headers')
+      return NextResponse.json(
+        { error: 'Missing security headers' },
+        { status: 401 }
+      )
+    }
 
+    // 2. Parse request body
     const body = await request.json()
     
-    console.log('[v0] Mercado Pago webhook received:', body)
+    console.log('[v0] Mercado Pago webhook received:', {
+      type: body.type,
+      dataId: body.data?.id,
+      xRequestId,
+    })
 
-    // Mercado Pago sends notifications in this format
+    // 3. Validate webhook type
     const { type, data } = body
-
-    // We only care about payment notifications
+    
     if (type !== 'payment') {
       return NextResponse.json({ received: true })
     }
@@ -27,26 +37,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No payment ID' }, { status: 400 })
     }
 
-    // Find order by external_reference or search through metadata
-    // First, we need to get the payment details to extract the order info
-    // We'll do this in batches to find the right partner's access token
+    // 4. Create Supabase client
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    // Try to find order with this payment ID first
+    // 5. Find the order and partner
     const { data: existingOrder } = await supabase
       .from('orders')
-      .select('id, mp_payment_id, partner_id, partners(mp_access_token)')
+      .select('id, mp_payment_id, partner_id, partners(mp_access_token, mp_webhook_secret)')
       .eq('mp_payment_id', paymentId)
       .single()
 
     let order = existingOrder
     let paymentDetails: any
+    let partnerSecret: string | null = null
 
     if (!order) {
-      // Payment not yet associated - need to fetch payment details
-      // Try to find by querying recent orders and checking each partner's token
+      // Payment not yet associated - search recent orders
       const { data: recentOrders } = await supabase
         .from('orders')
-        .select('id, order_number, mp_preference_id, partner_id, partners(mp_access_token)')
+        .select('id, order_number, mp_preference_id, partner_id, partners(mp_access_token, mp_webhook_secret)')
         .is('mp_payment_id', null)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -60,20 +72,20 @@ export async function POST(request: NextRequest) {
                 paymentId
               )
 
-              // Check if this payment matches this order
               if (paymentDetails.external_reference === recentOrder.id) {
                 order = recentOrder
+                partnerSecret = recentOrder.partners.mp_webhook_secret
                 break
               }
             } catch (err) {
-              // Token might not have access to this payment, continue
               continue
             }
           }
         }
       }
     } else {
-      // Fetch updated payment details
+      partnerSecret = order.partners?.mp_webhook_secret || null
+      
       if (order.partners?.mp_access_token) {
         paymentDetails = await getPayment(
           order.partners.mp_access_token,
@@ -87,10 +99,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Map Mercado Pago status to our order status
+    if (partnerSecret) {
+      const isValid = validateWebhookSignature(
+        xSignature,
+        xRequestId,
+        paymentId,
+        partnerSecret
+      )
+      
+      if (!isValid) {
+        console.error('[v0] Invalid webhook signature for payment:', paymentId)
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 401 }
+        )
+      }
+    } else {
+      console.warn('[v0] No webhook secret configured for partner, skipping validation')
+    }
+
+    // 7. Validate payment amount matches order
+    const orderTotal = Number(order.total_amount || paymentDetails.transaction_amount)
+    const paymentAmount = Number(paymentDetails.transaction_amount)
+    
+    if (Math.abs(orderTotal - paymentAmount) > 0.01) {
+      console.error('[v0] Payment amount mismatch:', {
+        orderId: order.id,
+        expected: orderTotal,
+        received: paymentAmount,
+      })
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      )
+    }
+
+    // 8. Map status and update order
     const newStatus = mapMPStatusToOrderStatus(paymentDetails.status)
 
-    // Update order with payment information
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -127,7 +173,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Also handle GET requests from Mercado Pago webhook verification
+// Handle GET requests for webhook verification
 export async function GET(request: NextRequest) {
   return NextResponse.json({ status: 'ok' })
 }
