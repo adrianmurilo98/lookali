@@ -35,25 +35,14 @@ export function MercadoPagoConnectButton({
   const router = useRouter()
   const { toast } = useToast()
 
-const handleConnect = () => {
-  setIsConnecting(true)
-  
-  const clientId = process.env.NEXT_PUBLIC_MP_CLIENT_ID
-  const redirectUri = `${window.location.origin}/api/mercadopago/oauth-callback`
-  
-  // Use timestamp-based state for security
-  const state = `${partnerId}_${Date.now()}`
-  
-  // Build simple OAuth URL - token revocation handles forcing new login
-  const authUrl = `https://auth.mercadopago.com.br/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
-  
-  console.log('[v0] Redirecting to MP OAuth')
-  
-  // Store state for validation
-  sessionStorage.setItem('mp_oauth_state', state)
-  
-  window.location.href = authUrl
-}
+  const handleConnect = () => {
+    setIsConnecting(true)
+    
+    console.log('[v0] Redirecting to MP logout page to clear session')
+    
+    // Redirecionar para página intermediária que limpa a sessão
+    router.push(`/mp-logout?partner_id=${partnerId}`)
+  }
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true)
