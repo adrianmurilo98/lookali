@@ -23,7 +23,7 @@ export function MercadoPagoConnectButton({
     const redirectUri = `${window.location.origin}/api/mercadopago/oauth-callback`
     
     // Redirect to Mercado Pago OAuth
-    const authUrl = `https://auth.mercadopago.com.br/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${redirectUri}`
+    const authUrl = `https://auth.mercadopago.com.br/authorization?client_id=${clientId}&response_type=code&platform_id=mp&redirect_uri=${redirectUri}&force_login=true`
     
     window.location.href = authUrl
   }

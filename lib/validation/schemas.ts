@@ -18,11 +18,20 @@ export const OrderSchema = z.object({
   quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1").max(1000),
   totalAmount: z.number().min(0.01, "Valor total inválido").max(999999),
   deliveryType: z.enum(["delivery", "pickup"]),
-  deliveryAddress: z.string().min(10, "Endereço muito curto").max(500),
+  deliveryAddress: z.string().max(500),
   paymentMethod: z.string().min(1, "Método de pagamento obrigatório").max(100),
   notes: z.string().max(1000).optional(),
   partnerId: z.string().uuid(),
   buyerId: z.string().uuid(),
+}).refine((data) => {
+  // Only require deliveryAddress when deliveryType is "delivery"
+  if (data.deliveryType === "delivery") {
+    return data.deliveryAddress.length >= 10
+  }
+  return true
+}, {
+  message: "Endereço muito curto",
+  path: ["deliveryAddress"]
 })
 
 // Parceiro
