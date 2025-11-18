@@ -10,7 +10,7 @@ import ConfirmModal from "../reusable/ConfirmModal"
 import { TrashIcon } from "../reusable/Icons"
 
 interface EditProductWrapperProps {
-  product: Product & {
+  product: Omit<Product, 'icon'> & {
     costPrice: number
     description: string
     subcategory: string
@@ -40,7 +40,6 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
   }
 
   const handleSaveProduct = async (productData: any) => {
-    console.log("[v0] Updating product with data:", productData)
     setIsSaving(true)
 
     try {
@@ -54,7 +53,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
       const result = await updateProductAction({
         productId: product.id,
         name: productData.name,
-        description: productData.description,
+        description: productData.description || null,
         category: productData.category || null,
         subcategory: productData.subcategory || null,
         brand: productData.brand || null,
@@ -63,12 +62,12 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
         unit: productData.unidade || null,
         product_type: productData.productType || "Físico",
         condition: productData.condicao || "Novo",
-        cost_price: productData.costPrice || null,
-        price: productData.price,
-        stock_quantity: productData.stock,
+        cost_price: productData.costPrice ? Number(productData.costPrice) : null,
+        price: Number(productData.price),
+        stock_quantity: Number(productData.stock),
         min_stock: 10,
         location: productData.localizacao || null,
-        images: productData.images || [],
+        images: Array.isArray(productData.images) ? productData.images : [],
         visibility_status: visibilityMap[productData.visibility] || "Oculto",
         is_active: productData.status === "Active",
       })
@@ -81,7 +80,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
         toast.error(result.error || "Erro ao atualizar produto")
       }
     } catch (error) {
-      console.error("[v0] Error updating product:", error)
+      console.error("Error updating product:", error)
       toast.error("Erro ao atualizar produto")
     } finally {
       setIsSaving(false)
@@ -89,7 +88,6 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
   }
 
   const handleDeleteClick = async () => {
-    // Check if product is in any pending orders
     const result = await checkProductInOrdersAction(product.id)
     if (result.count > 0) {
       setPendingOrdersCount(result.count)
@@ -108,7 +106,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
         toast.error(result.error || "Erro ao desativar produto")
       }
     } catch (error) {
-      console.error("[v0] Error deleting product:", error)
+      console.error("Error deleting product:", error)
       toast.error("Erro ao desativar produto")
     } finally {
       setIsDeleting(false)
@@ -116,11 +114,16 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
     }
   }
 
+  const productWithIcon = {
+    ...product,
+    icon: () => null,
+  }
+
   return (
     <>
       <AddProductPage
         onBack={handleBack}
-        product={product}
+        product={productWithIcon}
         mode={mode}
         setMode={setMode}
         onSave={handleSaveProduct}
