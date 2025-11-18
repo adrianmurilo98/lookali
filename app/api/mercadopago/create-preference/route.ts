@@ -149,15 +149,6 @@ export async function POST(request: NextRequest) {
       preferenceData
     )
 
-    console.log('[DEBUG] Preference completa:', JSON.stringify({
-  id: preference.id,
-  payment_methods: preference.payment_methods,
-  excluded_payment_methods: preference.excluded_payment_methods,
-  excluded_payment_types: preference.excluded_payment_types,
-  available_payment_methods: preference.available_payment_methods, // Pode não vir
-  init_point: preference.init_point,
-}, null, 2))
-
     // Update order with preference ID
     await supabase
       .from('orders')
@@ -170,13 +161,12 @@ export async function POST(request: NextRequest) {
     const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
     const webUrl = isSandbox ? preference.sandbox_init_point : preference.init_point
     
-    // Force HTTPS and web URL format
-    const finalUrl = webUrl?.replace(/^mercadopago:\/\//, 'https://www.mercadopago.com.br/')
+    console.log('[v0] MP checkout URL:', webUrl, 'Sandbox:', isSandbox)
     
     return NextResponse.json({
       success: true,
       preferenceId: preference.id,
-      initPoint: finalUrl || webUrl,
+      initPoint: webUrl,
       isSandbox,
     })
   } catch (error: any) {
