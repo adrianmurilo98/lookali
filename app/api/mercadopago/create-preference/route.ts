@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createPreference, getMercadoPagoEnvironment } from '@/lib/mercadopago'
+import { createPreference } from '@/lib/mercadopago'
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     
-    const [{ data: { user } }, body] = await Promise.all([
-      supabase.auth.getUser(),
-      request.json()
-    ])
-    
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json(
         { error: 'Não autenticado' },
@@ -18,6 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const body = await request.json()
     const { orderId } = body
 
     if (!orderId) {
@@ -27,22 +24,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const [orderResult, profileResult] = await Promise.all([
-      supabase
-        .from('orders')
-        .select('*, partners(*), order_items(*)')
-        .eq('id', orderId)
-        .eq('buyer_id', user.id)
-        .single(),
-      supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('id', user.id)
-        .single()
-    ])
-
-    const { data: order, error: orderError } = orderResult
-    const { data: profile } = profileResult
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*, partners(*), order_items(*)')
+      .eq('id', orderId)
+      .eq('buyer_id', user.id)
+      .single()
 
     if (orderError || !order) {
       return NextResponse.json(
@@ -72,9 +59,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const mpEnv = getMercadoPagoEnvironment(order.partners.mp_access_token)
-    console.log('[v0] Mercado Pago environment:', mpEnv)
-
     // Prepare items for preference
     const items = order.order_items.map((item: any) => ({
       id: item.product_id,
@@ -94,8 +78,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get buyer profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone')
+      .eq('id', user.id)
+      .single()
+
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
+    // Create preference with 0% marketplace fee (100% goes to seller)
     const preferenceData = {
       items,
       payer: {
@@ -106,7 +98,7 @@ export async function POST(request: NextRequest) {
           number: profile.phone.substring(2),
         } : undefined,
       },
-      payment_methods: {
+       payment_methods: {
         excluded_payment_methods: [], // Don't exclude any specific methods
         excluded_payment_types: [], // Don't exclude any payment types (enables credit_card, debit_card, ticket/boleto, bank_transfer/pix)
         installments: 12, // Allow up to 12 installments
@@ -121,17 +113,13 @@ export async function POST(request: NextRequest) {
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
       marketplace_fee: 0, // 0% fee - 100% goes to seller
-      statement_descriptor: order.partners.name?.substring(0, 13) || 'Marketplace', // Appears on card statement
       metadata: {
         order_id: orderId,
         order_number: order.order_number,
         partner_id: order.partner_id,
         buyer_id: user.id,
-        environment: mpEnv.environment,
       },
     }
-
-    console.log('[v0] Creating MP preference with payment methods:', preferenceData.payment_methods)
 
     const preference = await createPreference(
       order.partners.mp_access_token,
@@ -152,8 +140,6 @@ export async function POST(request: NextRequest) {
       preferenceId: preference.id,
       initPoint: preference.init_point,
       sandboxInitPoint: preference.sandbox_init_point,
-      environment: mpEnv.environment,
-      isSandbox: mpEnv.isSandbox,
     })
   } catch (error: any) {
     console.error('[v0] Error creating Mercado Pago preference:', error)

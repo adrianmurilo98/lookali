@@ -37,13 +37,6 @@ export interface MPPreferenceData {
       number?: string
     }
   }
-  payment_methods?: {
-    excluded_payment_methods?: Array<{ id: string }>
-    excluded_payment_types?: Array<{ id: string }>
-    default_payment_method_id?: string
-    installments?: number
-    default_installments?: number
-  }
   back_urls?: {
     success?: string
     failure?: string
@@ -54,7 +47,6 @@ export interface MPPreferenceData {
   notification_url?: string
   marketplace_fee?: number
   metadata?: Record<string, any>
-  statement_descriptor?: string
 }
 
 export async function createPayment(
@@ -218,17 +210,5 @@ export async function revokeAccessToken(
   } catch (error) {
     console.error('[v0] Error revoking MP token:', error)
     return false
-  }
-}
-
-export function isSandboxToken(accessToken: string): boolean {
-  return accessToken.startsWith('TEST-')
-}
-
-export function getMercadoPagoEnvironment(accessToken: string): { isSandbox: boolean; environment: string } {
-  const isSandbox = isSandboxToken(accessToken)
-  return {
-    isSandbox,
-    environment: isSandbox ? 'sandbox' : 'production'
   }
 }
