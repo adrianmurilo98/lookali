@@ -124,13 +124,6 @@ export async function POST(request: NextRequest) {
           number: profile.phone.substring(2),
         } : undefined,
       },
-      payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 12,
-        default_installments: 1,
-        default_payment_method_id: null,
-      },
       back_urls: {
         success: `${baseUrl}/payment-success?order_id=${orderId}`,
         failure: `${baseUrl}/payment-failure?order_id=${orderId}`,
@@ -156,7 +149,14 @@ export async function POST(request: NextRequest) {
       preferenceData
     )
 
-    console.log('[v0] Preference response completa:', JSON.stringify(preference, null, 2))
+    console.log('[DEBUG] Preference completa:', JSON.stringify({
+  id: preference.id,
+  payment_methods: preference.payment_methods,
+  excluded_payment_methods: preference.excluded_payment_methods,
+  excluded_payment_types: preference.excluded_payment_types,
+  available_payment_methods: preference.available_payment_methods, // Pode não vir
+  init_point: preference.init_point,
+}, null, 2))
 
     // Update order with preference ID
     await supabase
