@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         *,
         partners!orders_partner_id_fkey(
           id, 
-          business_name, 
+          store_name, 
           mp_access_token, 
           mp_user_id
         ),
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
       marketplace_fee: 0,
-      statement_descriptor: order.partners.business_name?.substring(0, 22) || 'MARKETPLACE',
+      statement_descriptor: order.partners.store_name?.substring(0, 22) || 'MARKETPLACE',
       metadata: {
         order_id: orderId,
         order_number: order.order_number,
