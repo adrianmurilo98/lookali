@@ -98,6 +98,12 @@ export async function POST(request: NextRequest) {
           number: profile.phone.substring(2),
         } : undefined,
       },
+      payment_methods: {
+    excluded_payment_methods: [], // Não excluir nenhum
+    excluded_payment_types: [],   // Não excluir nenhum tipo
+    installments: 12,             // Até 12x
+    default_installments: 1,      // Padrão à vista
+  },
       back_urls: {
         success: `${baseUrl}/payment-success?order_id=${orderId}`,
         failure: `${baseUrl}/payment-failure?order_id=${orderId}`,
