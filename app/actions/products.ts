@@ -526,13 +526,11 @@ export async function duplicateProductAction(productId: string) {
     return { error: "Produto não encontrado" }
   }
 
-  const newSku = await generateUniqueSKU(originalProduct.partner_id, supabase)
-
   const { data: newProduct, error: createError } = await supabase
     .from("products")
     .insert({
       partner_id: originalProduct.partner_id,
-      name: `${originalProduct.name} (cópia)`,
+      name: `${originalProduct.name} (copia)`,
       description: originalProduct.description,
       price: originalProduct.price,
       cost_price: originalProduct.cost_price,
@@ -541,7 +539,7 @@ export async function duplicateProductAction(productId: string) {
       category: originalProduct.category,
       subcategory: originalProduct.subcategory,
       brand: originalProduct.brand,
-      sku: newSku, // Use generated unique SKU instead of empty string
+      sku: '', // Blank SKU - will be filled by user or auto-generated
       gtin: originalProduct.gtin,
       unit: originalProduct.unit,
       product_type: originalProduct.product_type,
@@ -580,7 +578,7 @@ export async function duplicateProductAction(productId: string) {
   revalidatePath("/erp/products")
   revalidatePath("/marketplace")
 
-  return { success: true, newProductId: newProduct.id, newSku: newSku, redirectTo: `/erp/products/${newProduct.id}` }
+  return { success: true, newProductId: newProduct.id, redirectTo: `/erp/products/${newProduct.id}/edit` }
 }
 
 export async function getProductWithDetailsAction(productId: string) {
