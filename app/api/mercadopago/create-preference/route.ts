@@ -155,11 +155,12 @@ export async function POST(request: NextRequest) {
     console.log('[v0] Creating MP preference for order:', orderId)
 
     const preference = await createPreference(
-      order.partners.mp_access_token,
-      preferenceData
-    )
+  order.partners.mp_access_token,
+  preferenceData
+)
 
-    console.log('[v0] Preference created:', preference.id)
+// 👇 Adiciona esse log
+console.log('[v0] Preference response completa:', JSON.stringify(preference, null, 2))
 
     // Update order with preference ID
     await supabase
