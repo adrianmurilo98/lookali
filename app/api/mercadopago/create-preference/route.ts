@@ -147,7 +147,6 @@ export async function POST(request: NextRequest) {
         partner_id: order.partner_id,
         buyer_id: user.id,
       },
-      purpose: 'wallet_purchase',
     }
 
     console.log('[v0] Creating MP preference for order:', orderId)
