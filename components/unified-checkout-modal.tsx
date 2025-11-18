@@ -246,10 +246,18 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
       }
     }
 
+    console.log('[v0] Submitting checkout with:', {
+      useMercadoPago,
+      paymentMethod: formData.paymentMethod,
+      deliveryType: formData.deliveryType,
+      totalAmount
+    })
+
     try {
       await onSubmit({ ...formData, quantities, useMercadoPago })
     } catch (err) {
       setError("Erro ao processar pedido")
+      console.error('[v0] Checkout error:', err)
     } finally {
       setIsLoading(false)
     }
