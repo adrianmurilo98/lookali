@@ -26,7 +26,11 @@ export async function POST(request: NextRequest) {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, partners(*), order_items(*)')
+      .select(`
+        *,
+        partners(id, business_name, mp_access_token, mp_user_id),
+        order_items(*)
+      `)
       .eq('id', orderId)
       .eq('buyer_id', user.id)
       .single()
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!order.partners.mp_access_token) {
+    if (!order.partners?.mp_access_token) {
       return NextResponse.json(
         { error: 'Vendedor não possui Mercado Pago configurado' },
         { status: 400 }
@@ -52,16 +56,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (order.mp_preference_id) {
+    if (order.mp_preference_id && order.mp_payment_id) {
       return NextResponse.json(
-        { error: 'Pedido já possui preferência de pagamento criada' },
+        { error: 'Pedido já possui pagamento em andamento' },
         { status: 400 }
       )
     }
 
     // Prepare items for preference
     const items = order.order_items.map((item: any) => ({
-      id: item.product_id,
+      id: item.product_id || 'item',
       title: item.product_name || 'Produto',
       quantity: item.quantity,
       unit_price: Number(item.product_price),
@@ -87,7 +91,6 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
-    // Create preference with 0% marketplace fee (100% goes to seller)
     const preferenceData = {
       items,
       payer: {
@@ -99,11 +102,11 @@ export async function POST(request: NextRequest) {
         } : undefined,
       },
       payment_methods: {
-    excluded_payment_methods: [], // Não excluir nenhum
-    excluded_payment_types: [],   // Não excluir nenhum tipo
-    installments: 12,             // Até 12x
-    default_installments: 1,      // Padrão à vista
-  },
+        excluded_payment_methods: [],
+        excluded_payment_types: [],
+        installments: 12,
+        default_installments: 1,
+      },
       back_urls: {
         success: `${baseUrl}/payment-success?order_id=${orderId}`,
         failure: `${baseUrl}/payment-failure?order_id=${orderId}`,
@@ -112,7 +115,8 @@ export async function POST(request: NextRequest) {
       auto_return: 'approved' as const,
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
-      marketplace_fee: 0, // 0% fee - 100% goes to seller
+      marketplace_fee: 0,
+      statement_descriptor: 'MARKETPLACE',
       metadata: {
         order_id: orderId,
         order_number: order.order_number,
@@ -121,10 +125,14 @@ export async function POST(request: NextRequest) {
       },
     }
 
+    console.log('[v0] Creating MP preference for order:', orderId)
+
     const preference = await createPreference(
       order.partners.mp_access_token,
       preferenceData
     )
+
+    console.log('[v0] Preference created:', preference.id)
 
     // Update order with preference ID
     await supabase
@@ -135,11 +143,13 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', orderId)
 
+    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
+
     return NextResponse.json({
       success: true,
       preferenceId: preference.id,
-      initPoint: preference.init_point,
-      sandboxInitPoint: preference.sandbox_init_point,
+      initPoint: isSandbox ? preference.sandbox_init_point : preference.init_point,
+      isSandbox,
     })
   } catch (error: any) {
     console.error('[v0] Error creating Mercado Pago preference:', error)
