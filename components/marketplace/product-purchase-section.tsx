@@ -108,6 +108,12 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
 
         if (mpResult.success && mpResult.initPoint) {
           console.log("[v0] Redirecting to Mercado Pago:", mpResult.initPoint)
+          console.log("[v0] Environment:", mpResult.isSandbox ? 'SANDBOX' : 'PRODUCTION')
+          
+          if (mpResult.warning) {
+            console.warn("[v0] MP Warning:", mpResult.warning)
+          }
+          
           window.location.href = mpResult.initPoint
         } else {
           console.error("[v0] MP checkout failed:", mpResult.error)

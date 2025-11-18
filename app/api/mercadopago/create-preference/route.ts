@@ -114,6 +114,12 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
+    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
+    
+    console.log('[v0] MP Environment:', isSandbox ? 'SANDBOX' : 'PRODUCTION')
+    console.log('[v0] MP Access Token (first 20 chars):', order.partners.mp_access_token.substring(0, 20))
+    console.log('[v0] Partner MP User ID:', order.partners.mp_user_id)
+
     const preferenceData = {
       items,
       payer: {
@@ -139,10 +145,17 @@ export async function POST(request: NextRequest) {
         order_number: order.order_number,
         partner_id: order.partner_id,
         buyer_id: user.id,
+        environment: isSandbox ? 'sandbox' : 'production',
       },
     }
 
     console.log('[v0] Creating MP preference for order:', orderId)
+    console.log('[v0] Preference data:', {
+      items_count: items.length,
+      total: itemsTotal,
+      payer_email: preferenceData.payer.email,
+      marketplace_fee: preferenceData.metadata.environment,
+    })
 
     const preference = await createPreference(
       order.partners.mp_access_token,
@@ -158,16 +171,20 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', orderId)
 
-    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
     const webUrl = isSandbox ? preference.sandbox_init_point : preference.init_point
     
-    console.log('[v0] MP checkout URL:', webUrl, 'Sandbox:', isSandbox)
+    console.log('[v0] MP checkout URL:', webUrl)
+    console.log('[v0] IMPORTANTE: Se só aparecer PIX, a conta do vendedor pode não estar verificada!')
+    console.log('[v0] Orientação: Vendedor deve completar verificação de identidade no Mercado Pago')
     
     return NextResponse.json({
       success: true,
       preferenceId: preference.id,
       initPoint: webUrl,
       isSandbox,
+      warning: isSandbox 
+        ? 'Ambiente de teste. Use usuários de teste para comprar.' 
+        : 'Produção. Se só aparecer PIX, a conta do vendedor precisa ser verificada.',
     })
   } catch (error: any) {
     console.error('[v0] Error creating Mercado Pago preference:', error)

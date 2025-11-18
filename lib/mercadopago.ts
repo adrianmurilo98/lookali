@@ -85,10 +85,16 @@ export async function createPreference(
   const fullPreferenceData = {
     ...preferenceData,
     payment_methods: {
+      excluded_payment_methods: [],
+      excluded_payment_types: [],
       installments: 12,
       default_installments: 1,
     },
   }
+
+  const isSandbox = accessToken.startsWith('TEST-')
+  console.log('[v0] MP Environment:', isSandbox ? 'SANDBOX' : 'PRODUCTION')
+  console.log('[v0] Creating preference with payment_methods:', fullPreferenceData.payment_methods)
 
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -101,10 +107,18 @@ export async function createPreference(
 
   if (!response.ok) {
     const error = await response.json()
+    console.error('[v0] MP API Error:', error)
     throw new Error(error.message || 'Failed to create preference')
   }
 
-  return response.json()
+  const result = await response.json()
+  console.log('[v0] MP Preference created:', {
+    id: result.id,
+    init_point: result.init_point,
+    sandbox_init_point: result.sandbox_init_point,
+  })
+
+  return result
 }
 
 export async function getPayment(accessToken: string, paymentId: string) {
