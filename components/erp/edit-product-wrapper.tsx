@@ -44,29 +44,30 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
     setIsSaving(true)
 
     try {
-      // Map visibility to Portuguese
       const visibilityMap: Record<string, string> = {
         Published: "Publicado",
         Unpublished: "Oculto",
+        Publicado: "Publicado",
+        Oculto: "Oculto",
       }
 
       const result = await updateProductAction({
         productId: product.id,
         name: productData.name,
         description: productData.description,
-        category: productData.category,
-        subcategory: productData.subcategory,
-        brand: productData.brand,
-        sku: productData.sku,
-        gtin: productData.gtin,
-        unit: productData.unidade,
-        product_type: productData.productType,
-        condition: productData.condicao,
-        cost_price: productData.costPrice,
+        category: productData.category || null,
+        subcategory: productData.subcategory || null,
+        brand: productData.brand || null,
+        sku: productData.sku || null,
+        gtin: productData.gtin || null,
+        unit: productData.unidade || null,
+        product_type: productData.productType || "Físico",
+        condition: productData.condicao || "Novo",
+        cost_price: productData.costPrice || null,
         price: productData.price,
         stock_quantity: productData.stock,
-        min_stock: 10, // You can add this field to the form if needed
-        location: productData.localizacao,
+        min_stock: 10,
+        location: productData.localizacao || null,
         images: productData.images || [],
         visibility_status: visibilityMap[productData.visibility] || "Oculto",
         is_active: productData.status === "Active",
