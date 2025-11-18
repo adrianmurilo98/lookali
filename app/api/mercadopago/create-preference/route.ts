@@ -24,21 +24,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('[v0] Fetching order:', orderId)
+    
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`
         *,
-        partners(id, business_name, mp_access_token, mp_user_id),
+        partners!orders_partner_id_fkey(
+          id, 
+          business_name, 
+          mp_access_token, 
+          mp_user_id
+        ),
         order_items(*)
       `)
       .eq('id', orderId)
-      .eq('buyer_id', user.id)
       .single()
 
-    if (orderError || !order) {
+    console.log('[v0] Order query result:', { order, orderError })
+
+    if (orderError) {
+      console.error('[v0] Order query error:', orderError)
       return NextResponse.json(
-        { error: 'Pedido não encontrado ou sem permissão' },
+        { error: `Erro ao buscar pedido: ${orderError.message}` },
+        { status: 500 }
+      )
+    }
+
+    if (!order) {
+      return NextResponse.json(
+        { error: 'Pedido não encontrado' },
         { status: 404 }
+      )
+    }
+
+    if (order.buyer_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Sem permissão para acessar este pedido' },
+        { status: 403 }
       )
     }
 
@@ -65,10 +88,10 @@ export async function POST(request: NextRequest) {
 
     // Prepare items for preference
     const items = order.order_items.map((item: any) => ({
-      id: item.product_id || 'item',
-      title: item.product_name || 'Produto',
+      id: item.product_id || item.service_id || 'item',
+      title: item.product_name || item.service_name || 'Produto',
       quantity: item.quantity,
-      unit_price: Number(item.product_price),
+      unit_price: Number(item.product_price || item.service_price),
     }))
 
     const itemsTotal = items.reduce((sum: number, item: any) => 
@@ -116,7 +139,7 @@ export async function POST(request: NextRequest) {
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
       marketplace_fee: 0,
-      statement_descriptor: 'MARKETPLACE',
+      statement_descriptor: order.partners.business_name?.substring(0, 22) || 'MARKETPLACE',
       metadata: {
         order_id: orderId,
         order_number: order.order_number,
