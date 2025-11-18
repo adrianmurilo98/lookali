@@ -115,38 +115,42 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
     const preferenceData = {
-      items,
-      payer: {
-        name: profile?.full_name || undefined,
-        email: profile?.email || user.email || undefined,
-        phone: profile?.phone ? {
-          area_code: profile.phone.substring(0, 2),
-          number: profile.phone.substring(2),
-        } : undefined,
-      },
-      payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 12,
-        default_installments: 1,
-      },
-      back_urls: {
-        success: `${baseUrl}/payment-success?order_id=${orderId}`,
-        failure: `${baseUrl}/payment-failure?order_id=${orderId}`,
-        pending: `${baseUrl}/payment-pending?order_id=${orderId}`,
-      },
-      auto_return: 'approved' as const,
-      external_reference: orderId,
-      notification_url: `${baseUrl}/api/mercadopago/webhook`,
-      marketplace_fee: 0,
-      statement_descriptor: order.partners.store_name?.substring(0, 22) || 'MARKETPLACE',
-      metadata: {
-        order_id: orderId,
-        order_number: order.order_number,
-        partner_id: order.partner_id,
-        buyer_id: user.id,
-      },
-    }
+  items,
+  payer: {
+    name: profile?.full_name || undefined,
+    email: profile?.email || user.email || undefined,
+    phone: profile?.phone ? {
+      area_code: profile.phone.substring(0, 2),
+      number: profile.phone.substring(2),
+    } : undefined,
+  },
+  payment_methods: {
+    // ⚠️ MUDANÇA AQUI - Especifica explicitamente os meios aceitos
+    excluded_payment_methods: [],
+    excluded_payment_types: [],
+    installments: 12,
+    default_installments: 1,
+    // Adiciona isso:
+    default_payment_method_id: null,
+  },
+  back_urls: {
+    success: `${baseUrl}/payment-success?order_id=${orderId}`,
+    failure: `${baseUrl}/payment-failure?order_id=${orderId}`,
+    pending: `${baseUrl}/payment-pending?order_id=${orderId}`,
+  },
+  auto_return: 'approved' as const,
+  external_reference: orderId,
+  notification_url: `${baseUrl}/api/mercadopago/webhook`,
+  marketplace_fee: 0,
+  statement_descriptor: order.partners.store_name?.substring(0, 22) || 'MARKETPLACE',
+  metadata: {
+    order_id: orderId,
+    order_number: order.order_number,
+    partner_id: order.partner_id,
+    buyer_id: user.id,
+  },
+}
+
 
     console.log('[v0] Creating MP preference for order:', orderId)
 
