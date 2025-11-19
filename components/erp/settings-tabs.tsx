@@ -387,6 +387,7 @@ export function SettingsTabs({ partner }: SettingsTabsProps) {
         <TabsContent value="integrations">
           <div className="space-y-4">
             <MercadoPagoConnectButton
+              partnerId={partner.id}
               isConnected={!!partner.mp_access_token}
               connectedAt={partner.mp_connected_at}
             />

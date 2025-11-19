@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { revokeAccessToken } from "@/lib/mercadopago"
 
 interface CreatePartnerData {
   userId: string
@@ -160,4 +161,69 @@ export async function updatePartnerAction(partnerId: string, data: Partial<Creat
   revalidatePath("/erp/settings")
 
   return { success: true }
+}
+
+export async function disconnectMercadoPagoAction(partnerId: string) {
+  const supabase = await createClient()
+
+  try {
+    // Verify user owns this partner
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { error: 'Não autenticado' }
+    }
+
+    const { data: partner } = await supabase
+      .from('partners')
+      .select('id, user_id, mp_access_token')
+      .eq('id', partnerId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!partner) {
+      return { error: 'Parceiro não encontrado ou sem permissão' }
+    }
+
+    if (partner.mp_access_token) {
+      const clientId = process.env.MP_CLIENT_ID
+      const clientSecret = process.env.MP_CLIENT_SECRET
+      
+      if (clientId && clientSecret) {
+        console.log('[v0] Revoking MP access token...')
+        const revoked = await revokeAccessToken(clientId, clientSecret, partner.mp_access_token)
+        
+        if (revoked) {
+          console.log('[v0] MP token revoked successfully')
+        } else {
+          console.warn('[v0] Failed to revoke MP token, but continuing with disconnect')
+        }
+      }
+    }
+
+    // Remove Mercado Pago credentials
+    const { error } = await supabase
+      .from('partners')
+      .update({
+        mp_access_token: null,
+        mp_refresh_token: null,
+        mp_user_id: null,
+        mp_public_key: null,
+        mp_webhook_secret: null,
+        mp_connected_at: null,
+      })
+      .eq('id', partnerId)
+
+    if (error) {
+      console.error('[v0] Error disconnecting Mercado Pago:', error)
+      return { error: 'Erro ao desconectar Mercado Pago' }
+    }
+
+    revalidatePath('/erp/settings')
+    console.log('[v0] Mercado Pago disconnected successfully for partner:', partnerId)
+    
+    return { success: true }
+  } catch (err) {
+    console.error('[v0] Exception disconnecting Mercado Pago:', err)
+    return { error: 'Erro inesperado ao desconectar' }
+  }
 }
