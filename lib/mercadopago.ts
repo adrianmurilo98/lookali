@@ -37,6 +37,12 @@ export interface MPPreferenceData {
       number?: string
     }
   }
+  payment_methods?: {
+    excluded_payment_methods?: Array<{ id: string }>
+    excluded_payment_types?: Array<{ id: string }>
+    installments?: number
+    default_installments?: number
+  }
   back_urls?: {
     success?: string
     failure?: string
@@ -46,7 +52,9 @@ export interface MPPreferenceData {
   external_reference?: string
   notification_url?: string
   marketplace_fee?: number
+  statement_descriptor?: string
   metadata?: Record<string, any>
+  binary_mode?: boolean
 }
 
 export async function createPayment(
@@ -75,21 +83,40 @@ export async function createPreference(
   accessToken: string,
   preferenceData: MPPreferenceData
 ) {
+  // NÃO sobrescrever payment_methods - deixar o MP decidir
+  const fullPreferenceData = {
+    ...preferenceData,
+    // Remover redirect_mode ou deixar undefined para usar o padrão
+    // Se quiser forçar web, use 'redirect' ao invés de 'modal'
+  }
+
+  const isSandbox = accessToken.startsWith('TEST-')
+  console.log('[v0] MP Environment:', isSandbox ? 'SANDBOX' : 'PRODUCTION')
+  console.log('[v0] Creating preference without payment method restrictions')
+
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(preferenceData),
+    body: JSON.stringify(fullPreferenceData),
   })
 
   if (!response.ok) {
     const error = await response.json()
+    console.error('[v0] MP API Error:', error)
     throw new Error(error.message || 'Failed to create preference')
   }
 
-  return response.json()
+  const result = await response.json()
+  console.log('[v0] MP Preference created:', {
+    id: result.id,
+    init_point: result.init_point,
+    sandbox_init_point: result.sandbox_init_point,
+  })
+
+  return result
 }
 
 export async function getPayment(accessToken: string, paymentId: string) {
@@ -110,15 +137,15 @@ export async function getPayment(accessToken: string, paymentId: string) {
 
 export function mapMPStatusToOrderStatus(mpStatus: string): string {
   const statusMap: Record<string, string> = {
-    'approved': 'paid',           // Payment approved and credited
-    'pending': 'pending',          // Waiting for payment
-    'authorized': 'pending',       // Payment authorized but not captured
-    'in_process': 'pending',       // Payment in process
-    'in_mediation': 'pending',     // In dispute/mediation
-    'rejected': 'cancelled',       // Payment rejected
-    'cancelled': 'cancelled',      // Payment cancelled
-    'refunded': 'cancelled',       // Payment refunded
-    'charged_back': 'cancelled',   // Chargeback issued
+    'approved': 'paid',
+    'pending': 'pending',
+    'authorized': 'pending',
+    'in_process': 'pending',
+    'in_mediation': 'pending',
+    'rejected': 'cancelled',
+    'cancelled': 'cancelled',
+    'refunded': 'cancelled',
+    'charged_back': 'cancelled',
   }
   
   return statusMap[mpStatus] || 'pending'
@@ -131,13 +158,11 @@ export function validateWebhookSignature(
   secret: string
 ): boolean {
   try {
-    // Split x-signature into parts
     const parts = xSignature.split(',')
     
     let ts: string | undefined
     let hash: string | undefined
     
-    // Extract ts and v1 hash
     for (const part of parts) {
       const [key, value] = part.split('=')
       if (key?.trim() === 'ts') {
@@ -152,7 +177,6 @@ export function validateWebhookSignature(
       return false
     }
     
-    // Check if notification is not too old (5 minutes tolerance)
     const notificationTime = parseInt(ts) * 1000
     const currentTime = Date.now()
     const timeDiff = Math.abs(currentTime - notificationTime)
@@ -163,16 +187,13 @@ export function validateWebhookSignature(
       return false
     }
     
-    // Build manifest string
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
     
-    // Calculate HMAC SHA256
     const crypto = require('crypto')
     const hmac = crypto.createHmac('sha256', secret)
     hmac.update(manifest)
     const calculatedHash = hmac.digest('hex')
     
-    // Compare hashes
     const isValid = calculatedHash === hash
     
     if (!isValid) {
@@ -207,7 +228,6 @@ export async function revokeAccessToken(
       }),
     })
 
-    // MP returns 200 or 204 on success
     return response.ok
   } catch (error) {
     console.error('[v0] Error revoking MP token:', error)
