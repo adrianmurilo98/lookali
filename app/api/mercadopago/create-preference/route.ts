@@ -114,12 +114,6 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
-    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
-    
-    console.log('[v0] MP Environment:', isSandbox ? 'SANDBOX' : 'PRODUCTION')
-    console.log('[v0] MP Access Token (first 20 chars):', order.partners.mp_access_token.substring(0, 20))
-    console.log('[v0] Partner MP User ID:', order.partners.mp_user_id)
-
     const preferenceData = {
       items,
       payer: {
@@ -139,29 +133,30 @@ export async function POST(request: NextRequest) {
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
       marketplace_fee: 0,
-      binary_mode: true, // Simplify payment to approved/rejected only
       statement_descriptor: order.partners.store_name?.substring(0, 22) || 'MARKETPLACE',
       metadata: {
         order_id: orderId,
         order_number: order.order_number,
         partner_id: order.partner_id,
         buyer_id: user.id,
-        environment: isSandbox ? 'sandbox' : 'production',
       },
     }
 
     console.log('[v0] Creating MP preference for order:', orderId)
-    console.log('[v0] Preference data:', {
-      items_count: items.length,
-      total: itemsTotal,
-      payer_email: preferenceData.payer.email,
-      marketplace_fee: preferenceData.metadata.environment,
-    })
 
     const preference = await createPreference(
       order.partners.mp_access_token,
       preferenceData
     )
+
+    console.log('[DEBUG] Preference completa:', JSON.stringify({
+  id: preference.id,
+  payment_methods: preference.payment_methods,
+  excluded_payment_methods: preference.excluded_payment_methods,
+  excluded_payment_types: preference.excluded_payment_types,
+  available_payment_methods: preference.available_payment_methods, // Pode não vir
+  init_point: preference.init_point,
+}, null, 2))
 
     // Update order with preference ID
     await supabase
@@ -172,20 +167,17 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', orderId)
 
+    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
     const webUrl = isSandbox ? preference.sandbox_init_point : preference.init_point
     
-    console.log('[v0] MP checkout URL:', webUrl)
-    console.log('[v0] IMPORTANTE: Se só aparecer PIX, a conta do vendedor pode não estar verificada!')
-    console.log('[v0] Orientação: Vendedor deve completar verificação de identidade no Mercado Pago')
+    // Force HTTPS and web URL format
+    const finalUrl = webUrl?.replace(/^mercadopago:\/\//, 'https://www.mercadopago.com.br/')
     
     return NextResponse.json({
       success: true,
       preferenceId: preference.id,
-      initPoint: webUrl,
+      initPoint: finalUrl || webUrl,
       isSandbox,
-      warning: isSandbox 
-        ? 'Ambiente de teste. Use usuários de teste para comprar.' 
-        : 'Produção. Se só aparecer PIX, a conta do vendedor precisa ser verificada.',
     })
   } catch (error: any) {
     console.error('[v0] Error creating Mercado Pago preference:', error)
