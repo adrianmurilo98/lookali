@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get('code')
-  const state = searchParams.get('state')
+  const state = searchParams.get('state') // This should contain the partner ID
 
   if (!code) {
     return NextResponse.redirect(
@@ -22,8 +22,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // (Opcional mas recomendado para segurança)
-    
     // Exchange code for access token
     const tokenResponse = await fetch('https://api.mercadopago.com/oauth/token', {
       method: 'POST',
@@ -62,6 +60,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Update partner with Mercado Pago credentials
     const { error: updateError } = await supabase
       .from('partners')
       .update({
@@ -80,8 +79,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('[v0] MP OAuth successful for partner:', partner.id)
-    
     return NextResponse.redirect(
       new URL('/erp/settings?mp_connected=true', request.url)
     )

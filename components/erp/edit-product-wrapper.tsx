@@ -10,7 +10,7 @@ import ConfirmModal from "../reusable/ConfirmModal"
 import { TrashIcon } from "../reusable/Icons"
 
 interface EditProductWrapperProps {
-  product: Omit<Product, 'icon'> & {
+  product: Product & {
     costPrice: number
     description: string
     subcategory: string
@@ -40,34 +40,34 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
   }
 
   const handleSaveProduct = async (productData: any) => {
+    console.log("[v0] Updating product with data:", productData)
     setIsSaving(true)
 
     try {
+      // Map visibility to Portuguese
       const visibilityMap: Record<string, string> = {
         Published: "Publicado",
         Unpublished: "Oculto",
-        Publicado: "Publicado",
-        Oculto: "Oculto",
       }
 
       const result = await updateProductAction({
         productId: product.id,
         name: productData.name,
-        description: productData.description || null,
-        category: productData.category || null,
-        subcategory: productData.subcategory || null,
-        brand: productData.brand || null,
-        sku: productData.sku || null,
-        gtin: productData.gtin || null,
-        unit: productData.unidade || null,
-        product_type: productData.productType || "Físico",
-        condition: productData.condicao || "Novo",
-        cost_price: productData.costPrice ? Number(productData.costPrice) : null,
-        price: Number(productData.price),
-        stock_quantity: Number(productData.stock),
-        min_stock: 10,
-        location: productData.localizacao || null,
-        images: Array.isArray(productData.images) ? productData.images : [],
+        description: productData.description,
+        category: productData.category,
+        subcategory: productData.subcategory,
+        brand: productData.brand,
+        sku: productData.sku,
+        gtin: productData.gtin,
+        unit: productData.unidade,
+        product_type: productData.productType,
+        condition: productData.condicao,
+        cost_price: productData.costPrice,
+        price: productData.price,
+        stock_quantity: productData.stock,
+        min_stock: 10, // You can add this field to the form if needed
+        location: productData.localizacao,
+        images: productData.images || [],
         visibility_status: visibilityMap[productData.visibility] || "Oculto",
         is_active: productData.status === "Active",
       })
@@ -80,7 +80,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
         toast.error(result.error || "Erro ao atualizar produto")
       }
     } catch (error) {
-      console.error("Error updating product:", error)
+      console.error("[v0] Error updating product:", error)
       toast.error("Erro ao atualizar produto")
     } finally {
       setIsSaving(false)
@@ -88,6 +88,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
   }
 
   const handleDeleteClick = async () => {
+    // Check if product is in any pending orders
     const result = await checkProductInOrdersAction(product.id)
     if (result.count > 0) {
       setPendingOrdersCount(result.count)
@@ -106,7 +107,7 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
         toast.error(result.error || "Erro ao desativar produto")
       }
     } catch (error) {
-      console.error("Error deleting product:", error)
+      console.error("[v0] Error deleting product:", error)
       toast.error("Erro ao desativar produto")
     } finally {
       setIsDeleting(false)
@@ -114,16 +115,11 @@ export function EditProductWrapper({ product, suppliers, partnerId }: EditProduc
     }
   }
 
-  const productWithIcon = {
-    ...product,
-    icon: () => null,
-  }
-
   return (
     <>
       <AddProductPage
         onBack={handleBack}
-        product={productWithIcon}
+        product={product}
         mode={mode}
         setMode={setMode}
         onSave={handleSaveProduct}

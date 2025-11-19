@@ -55,12 +55,9 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
     installments: number
     useMercadoPago?: boolean
   }) => {
-    console.log("[v0] Starting checkout with data:", data)
     const finalQuantity = data.quantities[product.id] || quantity
     setIsCheckingOut(true)
 
-    console.log("[v0] Creating order for product:", product.id, "quantity:", finalQuantity)
-    
     // Create order first
     const result = await createOrderAction({
       itemId: product.id,
@@ -75,10 +72,7 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
       buyerId: userId,
     })
 
-    console.log("[v0] Order creation result:", result)
-
     if (result.error) {
-      console.error("[v0] Error creating order:", result.error)
       toast({
         title: "Erro",
         description: result.error,
@@ -90,7 +84,6 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
 
     // If using Mercado Pago, redirect to checkout
     if (data.useMercadoPago) {
-      console.log("[v0] Using Mercado Pago, creating preference for order:", result.orderId)
       try {
         const response = await fetch('/api/mercadopago/create-preference', {
           method: 'POST',
@@ -102,15 +95,12 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
           }),
         })
 
-        console.log("[v0] MP API response status:", response.status)
         const mpResult = await response.json()
-        console.log("[v0] MP API result:", mpResult)
 
         if (mpResult.success && mpResult.initPoint) {
-          console.log("[v0] Redirecting to Mercado Pago:", mpResult.initPoint)
+          // Redirect to Mercado Pago checkout
           window.location.href = mpResult.initPoint
         } else {
-          console.error("[v0] MP checkout failed:", mpResult.error)
           toast({
             title: "Erro",
             description: mpResult.error || "Erro ao criar checkout",
@@ -119,7 +109,6 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
           setIsCheckingOut(false)
         }
       } catch (error) {
-        console.error("[v0] Exception during MP checkout:", error)
         toast({
           title: "Erro",
           description: "Erro ao processar pagamento",
@@ -129,7 +118,6 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
       }
     } else {
       // Regular checkout flow
-      console.log("[v0] Regular checkout completed, order:", result.orderNumber)
       setShowCheckoutModal(false)
       toast({
         title: "Sucesso",

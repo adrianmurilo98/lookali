@@ -37,12 +37,6 @@ export interface MPPreferenceData {
       number?: string
     }
   }
-  payment_methods?: {
-    excluded_payment_methods?: Array<{ id: string }>
-    excluded_payment_types?: Array<{ id: string }>
-    installments?: number
-    default_installments?: number
-  }
   back_urls?: {
     success?: string
     failure?: string
@@ -52,7 +46,6 @@ export interface MPPreferenceData {
   external_reference?: string
   notification_url?: string
   marketplace_fee?: number
-  statement_descriptor?: string
   metadata?: Record<string, any>
 }
 
@@ -82,52 +75,18 @@ export async function createPreference(
   accessToken: string,
   preferenceData: MPPreferenceData
 ) {
-  const fullPreferenceData = {
-    ...preferenceData,
-    // NÃO excluir nenhum método de pagamento - deixar todos disponíveis
-    payment_methods: {
-      // Permitir até 12 parcelas
-      installments: 12,
-      default_installments: 1,
-      // NÃO adicionar excluded_payment_types ou excluded_payment_methods
-      // Isso garante que TODOS os métodos estejam disponíveis
-    },
-  }
-
-  console.log('[v0] Creating MP preference with data:', JSON.stringify(fullPreferenceData, null, 2))
-
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(fullPreferenceData),
+    body: JSON.stringify(preferenceData),
   })
 
   if (!response.ok) {
     const error = await response.json()
-    console.error('[v0] MP API error:', error)
     throw new Error(error.message || 'Failed to create preference')
-  }
-
-  const result = await response.json()
-  console.log('[v0] MP preference created:', result.id)
-  
-  return result
-}
-
-export async function getAvailablePaymentMethods(accessToken: string) {
-  const response = await fetch('https://api.mercadopago.com/v1/payment_methods', {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.message || 'Failed to get payment methods')
   }
 
   return response.json()
@@ -151,100 +110,14 @@ export async function getPayment(accessToken: string, paymentId: string) {
 
 export function mapMPStatusToOrderStatus(mpStatus: string): string {
   const statusMap: Record<string, string> = {
-    'approved': 'paid',           // Payment approved and credited
-    'pending': 'pending',          // Waiting for payment
-    'authorized': 'pending',       // Payment authorized but not captured
-    'in_process': 'pending',       // Payment in process
-    'in_mediation': 'pending',     // In dispute/mediation
-    'rejected': 'cancelled',       // Payment rejected
-    'cancelled': 'cancelled',      // Payment cancelled
-    'refunded': 'cancelled',       // Payment refunded
-    'charged_back': 'cancelled',   // Chargeback issued
+    'approved': 'paid',
+    'pending': 'pending',
+    'in_process': 'pending',
+    'rejected': 'cancelled',
+    'cancelled': 'cancelled',
+    'refunded': 'cancelled',
+    'charged_back': 'cancelled',
   }
   
   return statusMap[mpStatus] || 'pending'
-}
-
-export function validateWebhookSignature(
-  xSignature: string,
-  xRequestId: string,
-  dataId: string,
-  secret: string
-): boolean {
-  try {
-    const parts = xSignature.split(',')
-    
-    let ts: string | undefined
-    let hash: string | undefined
-    
-    for (const part of parts) {
-      const [key, value] = part.split('=')
-      if (key?.trim() === 'ts') {
-        ts = value?.trim()
-      } else if (key?.trim() === 'v1') {
-        hash = value?.trim()
-      }
-    }
-    
-    if (!ts || !hash) {
-      console.error('[v0] Missing ts or hash in x-signature')
-      return false
-    }
-    
-    const notificationTime = parseInt(ts) * 1000
-    const currentTime = Date.now()
-    const timeDiff = Math.abs(currentTime - notificationTime)
-    const fiveMinutes = 5 * 60 * 1000
-    
-    if (timeDiff > fiveMinutes) {
-      console.error('[v0] Notification too old:', { notificationTime, currentTime, timeDiff })
-      return false
-    }
-    
-    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
-    
-    const crypto = require('crypto')
-    const hmac = crypto.createHmac('sha256', secret)
-    hmac.update(manifest)
-    const calculatedHash = hmac.digest('hex')
-    
-    const isValid = calculatedHash === hash
-    
-    if (!isValid) {
-      console.error('[v0] Signature validation failed:', {
-        expected: hash,
-        calculated: calculatedHash,
-        manifest,
-      })
-    }
-    
-    return isValid
-  } catch (error) {
-    console.error('[v0] Error validating webhook signature:', error)
-    return false
-  }
-}
-
-export async function revokeAccessToken(
-  clientId: string,
-  clientSecret: string,
-  accessToken: string
-): Promise<boolean> {
-  try {
-    const response = await fetch('https://api.mercadopago.com/oauth/token', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      },
-      body: JSON.stringify({
-        token: accessToken,
-      }),
-    })
-
-    return response.ok
-  } catch (error) {
-    console.error('[v0] Error revoking MP token:', error)
-    return false
-  }
 }
