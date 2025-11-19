@@ -186,7 +186,7 @@ const FormInput: FC<{
       {labelAddon}
     </div>
     <div className="relative">
-      {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-inactive-text dark:text-dark-body">{prefix}</span>}
+      {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-inactive-text">{prefix}</span>}
       <input
         type={type}
         name={name}
