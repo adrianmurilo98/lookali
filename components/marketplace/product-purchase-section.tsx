@@ -108,19 +108,8 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
 
         if (mpResult.success && mpResult.initPoint) {
           console.log("[v0] Redirecting to Mercado Pago:", mpResult.initPoint)
-          // Open in new tab to avoid deep link issues
-          const mpWindow = window.open(mpResult.initPoint, '_blank')
-          if (!mpWindow) {
-            // If popup blocked, redirect in same window
-            window.location.href = mpResult.initPoint
-          } else {
-            // Close modal and show success message
-            setShowCheckoutModal(false)
-            toast({
-              title: "Redirecionando para pagamento",
-              description: "Você será redirecionado para o Mercado Pago",
-            })
-          }
+          // Redirect to Mercado Pago checkout
+          window.location.href = mpResult.initPoint
         } else {
           console.error("[v0] MP checkout failed:", mpResult.error)
           toast({
