@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createPreference } from '@/lib/mercadopago'
+import { createPreference, getAvailablePaymentMethods } from '@/lib/mercadopago'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,8 +40,6 @@ export async function POST(request: NextRequest) {
       `)
       .eq('id', orderId)
       .single()
-
-    console.log('[v0] Order query result:', { order, orderError })
 
     if (orderError) {
       console.error('[v0] Order query error:', orderError)
@@ -84,6 +82,34 @@ export async function POST(request: NextRequest) {
         { error: 'Pedido já possui pagamento em andamento' },
         { status: 400 }
       )
+    }
+
+    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
+    console.log(`[v0] MP Environment: ${isSandbox ? 'SANDBOX' : 'PRODUCTION'}`)
+    
+    // Verificar métodos de pagamento disponíveis para o vendedor
+    try {
+      const availablePaymentMethods = await getAvailablePaymentMethods(order.partners.mp_access_token)
+      console.log('[v0] Available payment methods for seller:', availablePaymentMethods.map((pm: any) => pm.id))
+      
+      const hasCredit = availablePaymentMethods.some((pm: any) => pm.payment_type_id === 'credit_card')
+      const hasDebit = availablePaymentMethods.some((pm: any) => pm.payment_type_id === 'debit_card')
+      const hasTicket = availablePaymentMethods.some((pm: any) => pm.payment_type_id === 'ticket')
+      const hasBankTransfer = availablePaymentMethods.some((pm: any) => pm.payment_type_id === 'bank_transfer')
+      
+      console.log('[v0] Payment method availability:', {
+        credit_card: hasCredit,
+        debit_card: hasDebit,
+        ticket: hasTicket,
+        bank_transfer: hasBankTransfer
+      })
+      
+      if (!hasCredit && !hasTicket) {
+        console.warn('[v0] ⚠️ ATENÇÃO: Conta do vendedor pode não estar verificada (KYC)!')
+        console.warn('[v0] Apenas PIX e saldo em conta estarão disponíveis até a conta ser verificada')
+      }
+    } catch (error) {
+      console.error('[v0] Error checking available payment methods:', error)
     }
 
     // Prepare items for preference
@@ -142,7 +168,7 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    console.log('[v0] Creating MP preference for order:', orderId)
+    console.log('[v0] Creating MP preference with seller token')
 
     const preference = await createPreference(
       order.partners.mp_access_token,
@@ -158,10 +184,11 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', orderId)
 
-    const isSandbox = order.partners.mp_access_token.startsWith('TEST-')
     const webUrl = isSandbox ? preference.sandbox_init_point : preference.init_point
     
-    console.log('[v0] MP checkout URL:', webUrl, 'Sandbox:', isSandbox)
+    console.log('[v0] ✅ MP preference created successfully')
+    console.log('[v0] Preference ID:', preference.id)
+    console.log('[v0] Checkout URL:', webUrl)
     
     return NextResponse.json({
       success: true,

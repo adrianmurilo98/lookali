@@ -84,11 +84,17 @@ export async function createPreference(
 ) {
   const fullPreferenceData = {
     ...preferenceData,
+    // NÃO excluir nenhum método de pagamento - deixar todos disponíveis
     payment_methods: {
+      // Permitir até 12 parcelas
       installments: 12,
       default_installments: 1,
+      // NÃO adicionar excluded_payment_types ou excluded_payment_methods
+      // Isso garante que TODOS os métodos estejam disponíveis
     },
   }
+
+  console.log('[v0] Creating MP preference with data:', JSON.stringify(fullPreferenceData, null, 2))
 
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -101,7 +107,27 @@ export async function createPreference(
 
   if (!response.ok) {
     const error = await response.json()
+    console.error('[v0] MP API error:', error)
     throw new Error(error.message || 'Failed to create preference')
+  }
+
+  const result = await response.json()
+  console.log('[v0] MP preference created:', result.id)
+  
+  return result
+}
+
+export async function getAvailablePaymentMethods(accessToken: string) {
+  const response = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to get payment methods')
   }
 
   return response.json()
