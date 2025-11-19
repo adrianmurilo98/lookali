@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     
+    // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json(
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get order details
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('*, partners(*), order_items(*)')
@@ -33,28 +35,15 @@ export async function POST(request: NextRequest) {
 
     if (orderError || !order) {
       return NextResponse.json(
-        { error: 'Pedido não encontrado ou sem permissão' },
+        { error: 'Pedido não encontrado' },
         { status: 404 }
       )
     }
 
+    // Check if partner has Mercado Pago connected
     if (!order.partners.mp_access_token) {
       return NextResponse.json(
         { error: 'Vendedor não possui Mercado Pago configurado' },
-        { status: 400 }
-      )
-    }
-
-    if (order.situation !== 'pending') {
-      return NextResponse.json(
-        { error: 'Pedido não está em estado válido para pagamento' },
-        { status: 400 }
-      )
-    }
-
-    if (order.mp_preference_id) {
-      return NextResponse.json(
-        { error: 'Pedido já possui preferência de pagamento criada' },
         { status: 400 }
       )
     }
@@ -66,17 +55,6 @@ export async function POST(request: NextRequest) {
       quantity: item.quantity,
       unit_price: Number(item.product_price),
     }))
-
-    const itemsTotal = items.reduce((sum: number, item: any) => 
-      sum + (item.quantity * item.unit_price), 0
-    )
-    
-    if (Math.abs(itemsTotal - Number(order.total_amount)) > 0.01) {
-      return NextResponse.json(
-        { error: 'Total do pedido não corresponde aos itens' },
-        { status: 400 }
-      )
-    }
 
     // Get buyer profile
     const { data: profile } = await supabase
