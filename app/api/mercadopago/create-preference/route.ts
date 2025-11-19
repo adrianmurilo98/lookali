@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
       external_reference: orderId,
       notification_url: `${baseUrl}/api/mercadopago/webhook`,
       marketplace_fee: 0,
+      binary_mode: true, // Simplify payment to approved/rejected only
       statement_descriptor: order.partners.store_name?.substring(0, 22) || 'MARKETPLACE',
       metadata: {
         order_id: orderId,

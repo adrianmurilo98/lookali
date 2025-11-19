@@ -84,6 +84,7 @@ export async function createPreference(
 ) {
   const fullPreferenceData = {
     ...preferenceData,
+    redirect_mode: 'modal', // Force modal/web view, no deep links
     payment_methods: {
       excluded_payment_methods: [],
       excluded_payment_types: [],
