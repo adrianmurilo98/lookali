@@ -1,23 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { addToCartAction } from "@/app/actions/cart"
-import { ShoppingCart, ShoppingBag, Minus, Plus } from 'lucide-react'
+import { ShoppingCart, ShoppingBag, Minus, Plus } from "lucide-react"
 import { UnifiedCheckoutModal } from "@/components/unified-checkout-modal"
 import { createOrderAction } from "@/app/actions/orders"
-import { useToast } from "@/hooks/use-toast"
 
 export function ProductPurchaseSection({ product, userId }: { product: any; userId: string }) {
   const router = useRouter()
-  const { toast } = useToast()
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
-  const [isCheckingOut, setIsCheckingOut] = useState(false)
 
   const handleAddToCart = async () => {
     if (quantity < 1 || quantity > product.stock_quantity) {
@@ -52,13 +49,9 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
     paymentMethod: string
     notes: string
     quantities: Record<string, number>
-    installments: number
-    useMercadoPago?: boolean
   }) => {
     const finalQuantity = data.quantities[product.id] || quantity
-    setIsCheckingOut(true)
 
-    // Create order first
     const result = await createOrderAction({
       itemId: product.id,
       itemType: "product",
@@ -66,66 +59,19 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
       totalAmount: Number(product.price) * finalQuantity,
       deliveryType: data.deliveryType,
       deliveryAddress: data.deliveryAddress,
-      paymentMethod: data.useMercadoPago ? "Mercado Pago" : data.paymentMethod,
+      paymentMethod: data.paymentMethod,
       notes: data.notes,
       partnerId: product.partner_id,
       buyerId: userId,
     })
 
     if (result.error) {
-      toast({
-        title: "Erro",
-        description: result.error,
-        variant: "destructive",
-      })
-      setIsCheckingOut(false)
-      return
-    }
-
-    // If using Mercado Pago, redirect to checkout
-    if (data.useMercadoPago) {
-      try {
-        const response = await fetch('/api/mercadopago/create-preference', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId: result.orderId,
-          }),
-        })
-
-        const mpResult = await response.json()
-
-        if (mpResult.success && mpResult.initPoint) {
-          // Redirect to Mercado Pago checkout
-          window.location.href = mpResult.initPoint
-        } else {
-          toast({
-            title: "Erro",
-            description: mpResult.error || "Erro ao criar checkout",
-            variant: "destructive",
-          })
-          setIsCheckingOut(false)
-        }
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Erro ao processar pagamento",
-          variant: "destructive",
-        })
-        setIsCheckingOut(false)
-      }
+      alert(result.error)
     } else {
-      // Regular checkout flow
       setShowCheckoutModal(false)
-      toast({
-        title: "Sucesso",
-        description: `Pedido ${result.orderNumber} criado com sucesso!`,
-      })
+      alert(`Pedido realizado com sucesso! Número: ${result.orderNumber}`)
       router.push("/my-orders")
       router.refresh()
-      setIsCheckingOut(false)
     }
   }
 
@@ -169,9 +115,9 @@ export function ProductPurchaseSection({ product, userId }: { product: any; user
       </div>
 
       <div className="space-y-2">
-        <Button onClick={handleBuyNow} disabled={disabled || isCheckingOut} className="w-full" size="lg">
+        <Button onClick={handleBuyNow} disabled={disabled} className="w-full" size="lg">
           <ShoppingBag className="mr-2 h-5 w-5" />
-          {isCheckingOut ? "Processando..." : `Comprar Agora - R$ ${(Number(product.price) * quantity).toFixed(2)}`}
+          Comprar Agora - R$ {(Number(product.price) * quantity).toFixed(2)}
         </Button>
 
         <Button

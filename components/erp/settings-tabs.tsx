@@ -13,11 +13,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { BusinessHoursSelector } from "@/components/business-hours-selector"
 import { PaymentMethodsGrid } from "@/components/erp/payment-methods-grid"
-import { MercadoPagoConnectButton } from "@/components/erp/mercadopago-connect-button"
 import { updatePartnerAction } from "@/app/actions/partner"
 import { getPaymentMethodsAction } from "@/app/actions/payment-methods"
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 interface SettingsTabsProps {
   partner: any
@@ -25,34 +23,11 @@ interface SettingsTabsProps {
 
 export function SettingsTabs({ partner }: SettingsTabsProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("general")
-
-  useEffect(() => {
-    const mpConnected = searchParams.get('mp_connected')
-    const errorParam = searchParams.get('error')
-    
-    if (mpConnected === 'true') {
-      toast({
-        title: "Sucesso!",
-        description: "Mercado Pago conectado com sucesso!",
-      })
-      setActiveTab("integrations")
-      // Clean URL
-      window.history.replaceState({}, '', '/erp/settings')
-    } else if (errorParam) {
-      toast({
-        title: "Erro",
-        description: "Erro ao conectar Mercado Pago. Tente novamente.",
-        variant: "destructive",
-      })
-    }
-  }, [searchParams, toast])
 
   useEffect(() => {
     const loadPaymentMethods = async () => {
@@ -160,12 +135,11 @@ export function SettingsTabs({ partner }: SettingsTabsProps) {
   return (
     <div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">Dados Gerais</TabsTrigger>
           <TabsTrigger value="address">Endereços</TabsTrigger>
           <TabsTrigger value="hours">Horários</TabsTrigger>
           <TabsTrigger value="payment">Pagamentos</TabsTrigger>
-          <TabsTrigger value="integrations">Integrações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -383,17 +357,8 @@ export function SettingsTabs({ partner }: SettingsTabsProps) {
         <TabsContent value="payment">
           <PaymentMethodsGrid partnerId={partner.id} methods={paymentMethods} onUpdate={reloadPaymentMethods} />
         </TabsContent>
-
-        <TabsContent value="integrations">
-          <div className="space-y-4">
-            <MercadoPagoConnectButton
-              isConnected={!!partner.mp_access_token}
-              connectedAt={partner.mp_connected_at}
-            />
-          </div>
-        </TabsContent>
       </Tabs>
-      {activeTab !== "payment" && activeTab !== "integrations" && (
+      {activeTab !== "payment" && (
         <form onSubmit={handleSubmit}>
           {error && <div className="p-4 bg-red-50 text-red-600 rounded-md text-sm">{error}</div>}
           {success && <div className="p-4 bg-green-50 text-green-600 rounded-md text-sm">{success}</div>}

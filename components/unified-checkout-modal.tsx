@@ -39,7 +39,6 @@ interface UnifiedCheckoutModalProps {
     notes: string
     quantities: Record<string, number>
     installments: number
-    useMercadoPago: boolean
   }) => Promise<void>
 }
 
@@ -85,8 +84,6 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
     notes: "",
     installments: 1,
   })
-
-  const [useMercadoPago, setUseMercadoPago] = useState(false)
 
   useEffect(() => {
     if (open && formData.deliveryType === "delivery") {
@@ -245,9 +242,10 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
         return
       }
     }
+    // No validation needed for pickup - removed the address validation completely
 
     try {
-      await onSubmit({ ...formData, quantities, useMercadoPago })
+      await onSubmit({ ...formData, quantities })
     } catch (err) {
       setError("Erro ao processar pedido")
     } finally {
@@ -494,47 +492,20 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
 
           <div className="grid gap-2">
             <Label htmlFor="paymentMethod">Meio de pagamento</Label>
-            
-            {/* Mercado Pago option */}
-            <div className="border rounded-md p-3 mb-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="use-mercadopago"
-                  checked={useMercadoPago}
-                  onChange={(e) => setUseMercadoPago(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="use-mercadopago" className="cursor-pointer flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Pagar com Mercado Pago</span>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                      Recomendado
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Pague com cartão, PIX, boleto e mais opções de forma segura
-                  </p>
-                </Label>
-              </div>
-            </div>
-
-            {!useMercadoPago && (
-              <RadioGroup
-                value={formData.paymentMethod}
-                onValueChange={(value) => setFormData({ ...formData, paymentMethod: value, installments: 1 })}
-              >
-                {partnerInfo.paymentMethods.map((method: string) => (
-                  <div key={method} className="flex items-center space-x-2">
-                    <RadioGroupItem value={method} id={`unified-${method}`} />
-                    <Label htmlFor={`unified-${method}`}>{method}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
+            <RadioGroup
+              value={formData.paymentMethod}
+              onValueChange={(value) => setFormData({ ...formData, paymentMethod: value, installments: 1 })}
+            >
+              {partnerInfo.paymentMethods.map((method: string) => (
+                <div key={method} className="flex items-center space-x-2">
+                  <RadioGroupItem value={method} id={`unified-${method}`} />
+                  <Label htmlFor={`unified-${method}`}>{method}</Label>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
 
-          {!useMercadoPago && formData.paymentMethod === "Cartão de Crédito" && (
+          {formData.paymentMethod === "Cartão de Crédito" && (
             <div className="grid gap-2">
               <Label htmlFor="installments">Parcelas</Label>
               <Select
@@ -568,7 +539,7 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
             </div>
           )}
 
-          {!useMercadoPago && formData.paymentMethod === "PIX" && pixDiscount > 0 && (
+          {formData.paymentMethod === "PIX" && pixDiscount > 0 && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-md text-sm space-y-1">
               <p className="text-green-700 font-medium">Desconto de {(pixDiscount * 100).toFixed(0)}% no PIX!</p>
               <p className="text-green-600">Economia de R$ {(totalAmount * pixDiscount).toFixed(2)}</p>
@@ -591,15 +562,13 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
           <div className="flex justify-between items-center p-4 bg-primary/10 rounded-md">
             <div>
               <p className="font-semibold text-lg">Total:</p>
-              {!useMercadoPago && formData.paymentMethod === "Cartão de Crédito" && formData.installments > 1 && (
+              {formData.paymentMethod === "Cartão de Crédito" && formData.installments > 1 && (
                 <p className="text-xs text-muted-foreground">
                   {formData.installments}x de R$ {installmentValue.toFixed(2)}
                 </p>
               )}
             </div>
-            <span className="text-2xl font-bold">
-              R$ {useMercadoPago ? totalAmount.toFixed(2) : finalAmount.toFixed(2)}
-            </span>
+            <span className="text-2xl font-bold">R$ {finalAmount.toFixed(2)}</span>
           </div>
 
           <div className="flex gap-2">
@@ -613,7 +582,7 @@ export function UnifiedCheckoutModal({ open, onClose, products, partnerInfo, onS
               Cancelar
             </Button>
             <Button type="submit" className="flex-1" disabled={isLoading}>
-              {isLoading ? "Processando..." : useMercadoPago ? "Ir para pagamento" : "Confirmar pedido"}
+              {isLoading ? "Processando..." : "Confirmar pedido"}
             </Button>
           </div>
         </form>
