@@ -2,44 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation"
 import { OrderSchema } from "@/lib/validation/schemas"
 import { getCurrentUser, verifyOrderAccess } from "@/lib/auth/authorization"
-
-async function generateOrderNumber(supabase: any): Promise<string> {
-  // Get the last order number to determine next sequence
-  const { data: lastOrder } = await supabase
-    .from("orders")
-    .select("order_number")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single()
-  
-  let nextNumber = 1
-  
-  if (lastOrder?.order_number) {
-    // Extract the first part of the code (e.g., "LKA" from "#LKA-TH7BY")
-    const match = lastOrder.order_number.match(/#([A-Z0-9]{3})-/)
-    if (match) {
-      // Convert base-36 string to number and increment
-      const currentBase36 = match[1]
-      const currentNum = parseInt(currentBase36, 36)
-      nextNumber = currentNum + 1
-    }
-  }
-  
-  // Convert number to base-36 and pad to 3 characters
-  const firstPart = nextNumber.toString(36).toUpperCase().padStart(3, '0')
-  
-  // Generate random 5-character second part
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let secondPart = ''
-  for (let i = 0; i < 5; i++) {
-    secondPart += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  
-  return `#${firstPart}-${secondPart}`
-}
 
 export async function createOrderAction(data: {
   itemId: string
@@ -83,10 +48,7 @@ export async function createOrderAction(data: {
 
   const { data: buyerProfile } = await supabase.from("profiles").select("full_name").eq("id", data.buyerId).single()
 
-  const orderNumber = await generateOrderNumber(supabase)
-
   const orderData: any = {
-    order_number: orderNumber,
     buyer_id: data.buyerId,
     customer_name: buyerProfile?.full_name || null,
     partner_id: data.partnerId,

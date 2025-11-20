@@ -121,41 +121,6 @@ export async function toggleCartSelectionAction(cartItemId: string) {
   return { success: true }
 }
 
-async function generateOrderNumber(supabase: any): Promise<string> {
-  // Get the last order number to determine next sequence
-  const { data: lastOrder } = await supabase
-    .from("orders")
-    .select("order_number")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single()
-  
-  let nextNumber = 1
-  
-  if (lastOrder?.order_number) {
-    // Extract the first part of the code (e.g., "LKA" from "#LKA-TH7BY")
-    const match = lastOrder.order_number.match(/#([A-Z0-9]{3})-/)
-    if (match) {
-      // Convert base-36 string to number and increment
-      const currentBase36 = match[1]
-      const currentNum = parseInt(currentBase36, 36)
-      nextNumber = currentNum + 1
-    }
-  }
-  
-  // Convert number to base-36 and pad to 3 characters
-  const firstPart = nextNumber.toString(36).toUpperCase().padStart(3, '0')
-  
-  // Generate random 5-character second part
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let secondPart = ''
-  for (let i = 0; i < 5; i++) {
-    secondPart += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  
-  return `#${firstPart}-${secondPart}`
-}
-
 export async function checkoutCartAction(
   partnerItems: { cartItemId: string; productId: string; quantity: number }[],
   deliveryType: "delivery" | "pickup",
@@ -200,12 +165,9 @@ export async function checkoutCartAction(
 
   const partnerId = products[0].partner_id
 
-  const orderNumber = await generateOrderNumber(supabase)
-
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
-      order_number: orderNumber,
       buyer_id: userData.user.id,
       customer_name: buyerProfile?.full_name || null,
       partner_id: partnerId,
@@ -244,5 +206,5 @@ export async function checkoutCartAction(
   revalidatePath("/my-orders")
   revalidatePath("/erp/orders")
 
-  return { success: true, orderId: order.id, orderNumber: order.order_number }
+  return { success: true, orderId: order.id }
 }
