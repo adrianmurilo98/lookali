@@ -55,7 +55,9 @@ export default async function MyOrdersPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-lg">
-                          Pedido {order.order_number ? `#${order.order_number}` : "(Aguardando pagamento)"}
+                          {order.mp_merchant_order_id
+                            ? `Pedido #${order.mp_merchant_order_id}`
+                            : "Pedido (Aguardando pagamento)"}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {order.partners?.store_name || "Loja"} •{" "}
@@ -130,7 +132,9 @@ export default async function MyOrdersPage() {
                     </div>
 
                     {order.mp_payment_id && order.situation === "pending" && (
-                      <PaymentDetailsDialog paymentId={order.mp_payment_id} paymentMethod={order.payment_method} />
+                      <div className="pt-2">
+                        <PaymentDetailsDialog paymentId={order.mp_payment_id} paymentMethod={order.payment_method} />
+                      </div>
                     )}
 
                     {order.situation === "paid" && !reviewedOrderIds.has(order.id) && order.order_items?.[0] && (

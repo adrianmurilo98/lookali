@@ -105,15 +105,20 @@ export async function getPayment(accessToken: string, paymentId: string) {
 export async function getPaymentDetails(accessToken: string, paymentId: string) {
   const payment = await getPayment(accessToken, paymentId)
 
-  // Extract QR code and ticket information
+  const pixData = payment.point_of_interaction?.transaction_data
+  const transactionDetails = payment.transaction_details
+
   return {
     ...payment,
-    qr_code: payment.point_of_interaction?.transaction_data?.qr_code || null,
-    qr_code_base64: payment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
-    ticket_url:
-      payment.point_of_interaction?.transaction_data?.ticket_url ||
-      payment.transaction_details?.external_resource_url ||
-      null,
+    // PIX data
+    qr_code: pixData?.qr_code || null,
+    qr_code_base64: pixData?.qr_code_base64 || null,
+    // Boleto data
+    ticket_url: pixData?.ticket_url || transactionDetails?.external_resource_url || null,
+    // Expiration dates
+    date_of_expiration: payment.date_of_expiration || null,
+    // Transaction details for additional info
+    barcode: pixData?.bank_info?.barcode?.content || null,
   }
 }
 

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { QrCode, Receipt, Copy, Check } from "lucide-react"
+import { QrCode, Receipt, Copy, Check, ExternalLink } from "lucide-react"
 import Image from "next/image"
 
 interface PaymentDetailsDialogProps {
@@ -27,7 +27,7 @@ export function PaymentDetailsDialog({ paymentId, paymentMethod }: PaymentDetail
         setPaymentData(data.payment)
       }
     } catch (error) {
-      console.error("Error loading payment details:", error)
+      console.error("[v0] Error loading payment details:", error)
     } finally {
       setLoading(false)
     }
@@ -51,95 +51,173 @@ export function PaymentDetailsDialog({ paymentId, paymentMethod }: PaymentDetail
 
   if (!isPix && !isBoleto) return null
 
+  const getExpirationInfo = () => {
+    if (!paymentData?.date_of_expiration) return null
+
+    const expirationDate = new Date(paymentData.date_of_expiration)
+    const now = new Date()
+    const diffInHours = Math.floor((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60))
+
+    return {
+      date: expirationDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+      time: expirationDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      hoursRemaining: diffInHours > 0 ? diffInHours : 0,
+      isExpired: diffInHours <= 0,
+    }
+  }
+
+  const expirationInfo = paymentData ? getExpirationInfo() : null
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="default" size="sm" className="w-full sm:w-auto">
           {isPix ? <QrCode className="w-4 h-4 mr-2" /> : <Receipt className="w-4 h-4 mr-2" />}
-          Ver {isPix ? "QR Code" : "Boleto"}
+          Ver forma de pagamento
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isPix ? "Pagar com PIX" : "Boleto Bancário"}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">
+            {isPix ? "Pronto! Conclua seu pagamento" : "Pronto! Conclua seu pagamento"}
+          </DialogTitle>
         </DialogHeader>
 
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : paymentData ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Amount Display */}
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-1">Valor do Pix a pagar:</p>
+              <p className="text-3xl font-bold">R$ {Number(paymentData.transaction_amount).toFixed(2)}</p>
+            </div>
+
+            {/* PIX QR Code and Code */}
             {isPix && paymentData.qr_code_base64 && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-4 rounded-lg">
+              <div className="space-y-4">
+                <p className="text-sm text-center">
+                  Falta pouco! Escaneie o código QR pelo seu app de pagamentos ou Internet Banking
+                </p>
+
+                <div className="flex justify-center bg-white p-4 rounded-lg">
                   <Image
                     src={`data:image/png;base64,${paymentData.qr_code_base64}`}
                     alt="QR Code PIX"
-                    width={256}
-                    height={256}
+                    width={240}
+                    height={240}
+                    className="rounded"
                   />
                 </div>
-                <p className="text-sm text-center text-muted-foreground">
-                  Escaneie o código QR pelo seu app de pagamentos ou Internet Banking
-                </p>
+
+                {paymentData.qr_code && (
+                  <div className="space-y-2">
+                    <p className="text-sm">Copie este código para pagar pelo Internet Banking</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={paymentData.qr_code}
+                        readOnly
+                        className="flex-1 px-3 py-2 text-xs border rounded-md bg-muted font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(paymentData.qr_code)}
+                        className="shrink-0"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-4 h-4 mr-1" />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-1" />
+                            Copiar código
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {expirationInfo && !expirationInfo.isExpired && (
+                  <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                    <p className="font-medium">Código válido por {expirationInfo.hoursRemaining} horas.</p>
+                    <p className="text-muted-foreground text-xs">
+                      Você pode pagar até {expirationInfo.date} às {expirationInfo.time}
+                    </p>
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                  <p>O pagamento será aprovado em 1 ou 2 horas úteis</p>
+                  <p>Pagamentos realizados no fim de semana serão identificados na segunda-feira pela manhã.</p>
+                  <p>Em caso de feriados, os pagamentos serão identificados no próximo dia útil.</p>
+                </div>
               </div>
             )}
 
-            {isPix && paymentData.qr_code && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Se preferir, você pode pagar copiando e colando o código abaixo:</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={paymentData.qr_code}
-                    readOnly
-                    className="flex-1 px-3 py-2 text-sm border rounded-md bg-muted"
-                  />
-                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(paymentData.qr_code)}>
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {isBoleto && paymentData.ticket_url && (
+            {/* Boleto Information */}
+            {isBoleto && (
               <div className="space-y-4">
-                <p className="text-sm text-center text-muted-foreground">
-                  Clique no botão abaixo para visualizar e pagar o boleto
-                </p>
-                <Button asChild className="w-full">
-                  <a href={paymentData.ticket_url} target="_blank" rel="noopener noreferrer">
-                    Abrir Boleto
-                  </a>
-                </Button>
+                {paymentData.barcode && (
+                  <div className="space-y-2">
+                    <p className="text-sm">Copie este código para pagar pelo Internet Banking</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={paymentData.barcode}
+                        readOnly
+                        className="flex-1 px-3 py-2 text-xs border rounded-md bg-muted font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(paymentData.barcode)}
+                        className="shrink-0"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-4 h-4 mr-1" />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-1" />
+                            Copiar código
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-sm text-center">Você também pode pagar com boleto em uma agência bancária.</p>
+
+                {paymentData.ticket_url && (
+                  <Button asChild className="w-full" size="lg">
+                    <a href={paymentData.ticket_url} target="_blank" rel="noopener noreferrer">
+                      Ver boleto
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </a>
+                  </Button>
+                )}
+
+                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                  <p>O pagamento será aprovado em 1 ou 2 horas úteis</p>
+                  <p>Pagamentos realizados no fim de semana serão identificados na segunda-feira pela manhã.</p>
+                  <p>Em caso de feriados, os pagamentos serão identificados no próximo dia útil.</p>
+                  {expirationInfo && !expirationInfo.isExpired && (
+                    <p className="font-medium pt-2">Você pode pagar até {expirationInfo.date}</p>
+                  )}
+                  <p className="pt-2">Também enviamos o boleto para seu e-mail.</p>
+                </div>
               </div>
             )}
-
-            <div className="pt-4 border-t space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Valor:</span>
-                <span className="font-semibold">R$ {Number(paymentData.transaction_amount).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status:</span>
-                <span
-                  className={`font-semibold ${
-                    paymentData.status === "approved"
-                      ? "text-green-600"
-                      : paymentData.status === "pending"
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                  }`}
-                >
-                  {paymentData.status === "approved"
-                    ? "Aprovado"
-                    : paymentData.status === "pending"
-                      ? "Pendente"
-                      : "Rejeitado"}
-                </span>
-              </div>
-            </div>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

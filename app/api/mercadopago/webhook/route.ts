@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
         status: paymentDetails.status,
         qrCode: !!paymentDetails.qr_code,
         ticketUrl: !!paymentDetails.ticket_url,
+        barcode: !!paymentDetails.barcode,
       })
 
       const { error: updateError } = await supabase
@@ -125,13 +126,14 @@ export async function POST(request: NextRequest) {
         .update({
           mp_payment_id: paymentId,
           mp_merchant_order_id: merchantOrderId,
-          order_number: merchantOrderId, // Use MP merchant order ID as order number
           mp_status: paymentDetails.status,
           mp_status_detail: paymentDetails.status_detail,
           situation: newStatus,
           mp_qr_code: paymentDetails.qr_code,
           mp_qr_code_base64: paymentDetails.qr_code_base64,
           mp_ticket_url: paymentDetails.ticket_url,
+          mp_barcode: paymentDetails.barcode,
+          mp_expiration_date: paymentDetails.date_of_expiration,
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id)
