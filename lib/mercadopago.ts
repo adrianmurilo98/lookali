@@ -102,6 +102,21 @@ export async function getPayment(accessToken: string, paymentId: string) {
   return response.json()
 }
 
+export async function getPaymentDetails(accessToken: string, paymentId: string) {
+  const payment = await getPayment(accessToken, paymentId)
+
+  // Extract QR code and ticket information
+  return {
+    ...payment,
+    qr_code: payment.point_of_interaction?.transaction_data?.qr_code || null,
+    qr_code_base64: payment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
+    ticket_url:
+      payment.point_of_interaction?.transaction_data?.ticket_url ||
+      payment.transaction_details?.external_resource_url ||
+      null,
+  }
+}
+
 export async function getMerchantOrder(accessToken: string, merchantOrderId: string) {
   const response = await fetch(`https://api.mercadopago.com/merchant_orders/${merchantOrderId}`, {
     method: "GET",

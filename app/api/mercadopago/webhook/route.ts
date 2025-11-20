@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { getPayment, mapMPStatusToOrderStatus, validateWebhookSignature } from "@/lib/mercadopago"
+import { getPaymentDetails, mapMPStatusToOrderStatus, validateWebhookSignature } from "@/lib/mercadopago"
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           for (const recentOrder of recentOrders) {
             if (recentOrder.partners?.mp_access_token) {
               try {
-                paymentDetails = await getPayment(recentOrder.partners.mp_access_token, paymentId)
+                paymentDetails = await getPaymentDetails(recentOrder.partners.mp_access_token, paymentId)
 
                 if (paymentDetails.external_reference === recentOrder.id) {
                   order = recentOrder
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         partnerSecret = order.partners?.mp_webhook_secret || null
 
         if (order.partners?.mp_access_token) {
-          paymentDetails = await getPayment(order.partners.mp_access_token, paymentId)
+          paymentDetails = await getPaymentDetails(order.partners.mp_access_token, paymentId)
         }
       }
 
@@ -109,24 +109,29 @@ export async function POST(request: NextRequest) {
 
       const newStatus = mapMPStatusToOrderStatus(paymentDetails.status)
 
-      const mpOrderNumber =
-        paymentDetails.order?.id?.toString() || paymentDetails.merchant_order_id?.toString() || order.order_number
+      const merchantOrderId = paymentDetails.order?.id?.toString() || paymentDetails.merchant_order_id?.toString()
 
       console.log("[v0] Updating order with MP data:", {
         orderId: order.id,
-        mpOrderNumber,
+        merchantOrderId,
         paymentId,
         status: paymentDetails.status,
+        qrCode: !!paymentDetails.qr_code,
+        ticketUrl: !!paymentDetails.ticket_url,
       })
 
       const { error: updateError } = await supabase
         .from("orders")
         .update({
           mp_payment_id: paymentId,
+          mp_merchant_order_id: merchantOrderId,
+          order_number: merchantOrderId, // Use MP merchant order ID as order number
           mp_status: paymentDetails.status,
           mp_status_detail: paymentDetails.status_detail,
           situation: newStatus,
-          order_number: mpOrderNumber,
+          mp_qr_code: paymentDetails.qr_code,
+          mp_qr_code_base64: paymentDetails.qr_code_base64,
+          mp_ticket_url: paymentDetails.ticket_url,
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id)

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { ReviewButton } from "@/components/marketplace/review-button"
 import { Header } from "@/components/header"
+import { PaymentDetailsDialog } from "@/components/marketplace/payment-details-dialog"
 
 export default async function MyOrdersPage() {
   const supabase = await createClient()
@@ -53,7 +54,9 @@ export default async function MyOrdersPage() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="text-lg">Pedido #{order.order_number}</CardTitle>
+                        <CardTitle className="text-lg">
+                          Pedido {order.order_number ? `#${order.order_number}` : "(Aguardando pagamento)"}
+                        </CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {order.partners?.store_name || "Loja"} •{" "}
                           {new Date(order.created_at).toLocaleDateString("pt-BR")}
@@ -125,6 +128,10 @@ export default async function MyOrdersPage() {
                         </div>
                       )}
                     </div>
+
+                    {order.mp_payment_id && order.situation === "pending" && (
+                      <PaymentDetailsDialog paymentId={order.mp_payment_id} paymentMethod={order.payment_method} />
+                    )}
 
                     {order.situation === "paid" && !reviewedOrderIds.has(order.id) && order.order_items?.[0] && (
                       <ReviewButton
