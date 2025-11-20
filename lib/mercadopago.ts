@@ -110,15 +110,13 @@ export async function getPayment(accessToken: string, paymentId: string) {
 
 export function mapMPStatusToOrderStatus(mpStatus: string): string {
   const statusMap: Record<string, string> = {
-    'approved': 'paid',           // Payment approved and credited
-    'pending': 'pending',          // Waiting for payment
-    'authorized': 'pending',       // Payment authorized but not captured
-    'in_process': 'pending',       // Payment in process
-    'in_mediation': 'pending',     // In dispute/mediation
-    'rejected': 'cancelled',       // Payment rejected
-    'cancelled': 'cancelled',      // Payment cancelled
-    'refunded': 'cancelled',       // Payment refunded
-    'charged_back': 'cancelled',   // Chargeback issued
+    'approved': 'paid',
+    'pending': 'pending',
+    'in_process': 'pending',
+    'rejected': 'cancelled',
+    'cancelled': 'cancelled',
+    'refunded': 'cancelled',
+    'charged_back': 'cancelled',
   }
   
   return statusMap[mpStatus] || 'pending'
