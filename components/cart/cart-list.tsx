@@ -1,18 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { updateCartQuantityAction, removeFromCartAction, toggleCartSelectionAction } from "@/app/actions/cart"
-import { Trash2 } from "lucide-react"
+import { Trash2 } from 'lucide-react'
 import { UnifiedCheckoutModal } from "@/components/unified-checkout-modal"
 import { checkoutCartAction } from "@/app/actions/cart"
+import { useToast } from "@/hooks/use-toast"
 
 export function CartList({ itemsByPartner, userId }: { itemsByPartner: any; userId: string }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
   const [checkoutPartner, setCheckoutPartner] = useState<string | null>(null)
 
@@ -56,10 +58,14 @@ export function CartList({ itemsByPartner, userId }: { itemsByPartner: any; user
     paymentMethod: string
     notes: string
     quantities: Record<string, number>
+    installments: number
+    useMercadoPago?: boolean
   }) => {
     if (!checkoutPartner) return
 
     const partnerData = itemsByPartner[checkoutPartner]
+    if (!partnerData) return
+
     const selectedItems = partnerData.items.filter((item: any) => item.selected !== false)
 
     const partnerItems = selectedItems.map((item: any) => ({
@@ -68,19 +74,63 @@ export function CartList({ itemsByPartner, userId }: { itemsByPartner: any; user
       quantity: data.quantities[item.product_id] || item.quantity,
     }))
 
+    // Create order with appropriate payment method
     const result = await checkoutCartAction(
       partnerItems,
       data.deliveryType,
       data.deliveryAddress,
-      data.paymentMethod,
+      data.useMercadoPago ? "Mercado Pago" : data.paymentMethod,
       data.notes,
     )
 
     if (result.error) {
-      alert(result.error)
+      toast({
+        title: "Erro",
+        description: result.error,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // If using Mercado Pago, redirect to checkout
+    if (data.useMercadoPago && result.orderId) {
+      try {
+        const response = await fetch('/api/mercadopago/create-preference', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: result.orderId,
+          }),
+        })
+
+        const mpResult = await response.json()
+
+        if (mpResult.success && mpResult.initPoint) {
+          // Redirect to Mercado Pago checkout
+          window.location.href = mpResult.initPoint
+        } else {
+          toast({
+            title: "Erro",
+            description: mpResult.error || "Erro ao criar checkout",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao processar pagamento",
+          variant: "destructive",
+        })
+      }
     } else {
+      // Regular checkout flow
       setCheckoutPartner(null)
-      alert(`Pedido realizado com sucesso! Número: ${result.orderNumber}`)
+      toast({
+        title: "Sucesso!",
+        description: `Pedido ${result.orderNumber} finalizado com sucesso!`,
+      })
       router.push("/my-orders")
       router.refresh()
     }

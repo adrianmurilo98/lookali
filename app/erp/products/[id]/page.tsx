@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"
+import { redirect } from 'next/navigation'
 import { createClient } from "@/lib/supabase/server"
 import { EditProductWrapper } from "@/components/erp/edit-product-wrapper"
 
@@ -16,33 +16,22 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     redirect("/auth/login")
   }
 
-  const { data: partner } = await supabase.from("partners").select("*").eq("user_id", userData.user.id).single()
+  const [{ data: partner }, { data: product }, { data: suppliers }] = await Promise.all([
+    supabase.from("partners").select("*").eq("user_id", userData.user.id).single(),
+    supabase.from("products").select("*").eq("id", id).single(),
+    supabase.from("suppliers").select("id, name, email, phone").order("name"),
+  ])
 
   if (!partner) {
     redirect("/dashboard")
   }
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", id)
-    .eq("partner_id", partner.id)
-    .single()
-
-  if (!product) {
+  if (!product || product.partner_id !== partner.id) {
     redirect("/erp/products")
   }
 
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("id, name, email, phone")
-    .eq("partner_id", partner.id)
-    .order("name")
-
-  // Convert database product to component format
   const formattedProduct = {
     id: product.id,
-    icon: () => null,
     name: product.name,
     category: product.category || "",
     productId: product.sku || "",
