@@ -55,9 +55,7 @@ export default async function MyOrdersPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-lg">
-                          {order.mp_merchant_order_id
-                            ? `Pedido #${order.mp_merchant_order_id}`
-                            : "Pedido (Aguardando pagamento)"}
+                          {order.order_number ? `Pedido #${order.order_number}` : "Pedido (Processando)"}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {order.partners?.store_name || "Loja"} •{" "}
